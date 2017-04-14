@@ -1,0 +1,118 @@
+<?php
+
+/**
+ * Implements hook_form_alter().
+ */
+
+function jq_version_form_alter( &$form, &$form_state,$form_id ){
+  if ($form_id == 'jquery_update_settings_form') {
+    $form['version_options']['jquery_update_jquery_version']['#options']['1.10.1'] = '1.10.1';
+    $form['version_options']['jquery_update_jquery_admin_version']['#options']['1.10.1'] = '1.10.1';
+  }
+
+ }
+
+ /**
+  * Implements hook_library_alter().
+  */
+ function jq_version_library_alter(&$javascript, $module) {
+   $path = drupal_get_path('module', 'jquery_update');
+   $jq_version_path = drupal_get_path('module', 'jq_version');
+   $version = variable_get('jquery_update_jquery_version', '1.10.1');
+
+   $min = variable_get('jquery_update_compression_type', 'min') == 'none' ? '' : '.min';
+   $cdn = variable_get('jquery_update_jquery_cdn', 'none');
+
+   // Replace jQuery with the alternative version.
+   $admin_version = variable_get('jquery_update_jquery_admin_version', '');
+
+   if (!empty($admin_version) && path_is_admin(current_path())) {
+     if (version_compare($version, $admin_version, '!=')) {
+       $version = $admin_version;
+     }
+   }
+   // If the ajax version is set then that one always win.
+   if (!empty($_POST['ajax_page_state']['jquery_version'])) {
+     $ajax_version = $_POST['ajax_page_state']['jquery_version'];
+     if (in_array($ajax_version, array('default', '1.5', '1.6', '1.7', '1.8', '1.9', '1.10', '1.10.1'))) {
+       $version = $ajax_version;
+     }
+   }
+   jq_version_jquery_replace($javascript, $cdn, $path, $jq_version_path, $min, $version);
+ }
+
+ /**
+  * Update jQuery to the CDN or local path.
+  *
+  * @param array $javascript
+  *   The library definition array as seen in hook_library_alter().
+  * @param string $cdn
+  *   The name of the CDN option to use. Possible options are:
+  *   - none
+  *   - google
+  *   - microsoft
+  * @param string $path
+  *   The path to the module where replacements can be found.
+  * @param string $min
+  *   The '.min' to include in the file name if we are requesting a minified
+  *   version.
+  * @param string $version
+  *   The version of jQuery to use.
+  */
+ function jq_version_jquery_replace(&$javascript, $cdn, $path, $jq_version_path, $min, $version) {
+
+   $trueversion = NULL;
+   switch ($version) {
+
+     case '1.5':
+       $trueversion = '1.5.2';
+       break;
+
+     case '1.7':
+       $trueversion = '1.7.2';
+       break;
+
+     case '1.8':
+       $trueversion = '1.8.3';
+       break;
+
+     case '1.9':
+       $trueversion = '1.9.1';
+       break;
+
+     case '1.10':
+       $trueversion = '1.10.2';
+       break;
+
+       case '1.10.1':
+       $trueversion = '1.10.1';
+       break;
+   }
+   $javascript['jquery']['version'] = $trueversion;
+   if ($trueversion == '1.10.1') {$path = $jq_version_path;}
+   // Check for CDN support.
+   switch ($cdn) {
+     case 'google':
+       $javascript['jquery']['js']['misc/jquery.js']['data'] = '//ajax.googleapis.com/ajax/libs/jquery/' . $trueversion . '/jquery' . $min . '.js';
+       $javascript['jquery']['js']['misc/jquery.js']['type'] = 'external';
+       jquery_update_jquery_backup($javascript, $path, $min, $version);
+       break;
+
+     case 'microsoft':
+       $javascript['jquery']['js']['misc/jquery.js']['data'] = '//ajax.aspnetcdn.com/ajax/jQuery/jquery-' . $trueversion . $min . '.js';
+       $javascript['jquery']['js']['misc/jquery.js']['type'] = 'external';
+       jquery_update_jquery_backup($javascript, $path, $min, $version);
+       break;
+
+     case 'jquery':
+       $javascript['jquery']['js']['misc/jquery.js']['data'] = '//code.jquery.com/jquery-' . $trueversion . $min . '.js';
+       $javascript['jquery']['js']['misc/jquery.js']['type'] = 'external';
+       jquery_update_jquery_backup($javascript, $path, $min, $version);
+       break;
+
+     case 'none':
+       default:
+       $javascript['jquery']['js']['misc/jquery.js']['data'] = $path . '/replace/jquery/' . $version . '/jquery' . $min . '.js';
+       break;
+   }
+ }

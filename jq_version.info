@@ -1,0 +1,4 @@
+name = JQ Version
+description = Alter JQuery version form
+core = 7.x
+dependencies[] = jquery_update
